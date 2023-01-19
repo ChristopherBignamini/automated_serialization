@@ -103,13 +103,14 @@ class AddPPSer:
             
             
             # in/out/inout parameter storage
-            in_parameters=[] 
-            out_parameters=[] 
+            in_parameters=[]
+            out_parameters=[]
             inout_parameters=[]
             nointent_parameters=[]
 
             # loop over file lines and identify functions/subroutines and parameter declaration
             is_fun_subroutine = False
+            print_in_parameters = True
             self.line = ''
             for line in input_file:
                 # Skip line already handled
@@ -118,7 +119,7 @@ class AddPPSer:
                     self.__linenum += 1
                     continue
                 self.__linenum += 1
-
+                
                 # identify subroutine and function
                 # check if subroutine/function is started
                 m_start = r_start.search(line)
@@ -146,6 +147,7 @@ class AddPPSer:
                     nointent_parameters=[]
                     print(m_end.group())
                     print()
+                    print_in_parameters=True
  
 
                 # if we are in subroutine/function look for parameters
@@ -174,7 +176,19 @@ class AddPPSer:
                             declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                             parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
                             nointent_parameters.extend(parameter_list)
+                    else:
 
+                        # here I'm assuming that all the declarations appear at the beginning
+                        # of a function/subroutine, so their section should now be over
+                        if(print_in_parameters):
+                            for var in in_parameters:
+                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n" 
+                                print_in_parameters=False
+                    
+                if(generate):
+                    self.__outputBuffer += line
+
+                            
         finally:
             input_file.close()
 
@@ -184,27 +198,31 @@ class AddPPSer:
 
         # parse file
         self.parse()
+
+        # generate output buffer
+        self.parse(generate=True)
+        print(self.__outputBuffer)
         
-        # write output
-        if self.outfile != '':
-            output_file = tempfile.NamedTemporaryFile(delete=False)
-            # same permissions as infile
-            os.chmod(output_file.name, os.stat(self.infile).st_mode)
-            output_file.write(to_ascii(self.__outputBuffer))
-            output_file.close()
-            useit = True
-            if os.path.isfile(self.outfile) and not self.identical:
-                if filecmp.cmp(self.outfile, output_file.name):
-                    useit = False
-            if useit:
-                try:
-                    os.rename(output_file.name, self.outfile)
-                except:
-                    shutil.move(output_file.name, self.outfile)
-            else:
-                os.remove(output_file.name)
-        else:
-            print(self.__outputBuffer)
+#        # write output
+#        if self.outfile != '':
+#            output_file = tempfile.NamedTemporaryFile(delete=False)
+#            # same permissions as infile
+#            os.chmod(output_file.name, os.stat(self.infile).st_mode)
+#            output_file.write(to_ascii(self.__outputBuffer))
+#            output_file.close()
+#            useit = True
+#            if os.path.isfile(self.outfile) and not self.identical:
+#                if filecmp.cmp(self.outfile, output_file.name):
+#                    useit = False
+#            if useit:
+#                try:
+#                    os.rename(output_file.name, self.outfile)
+#                except:
+#                    shutil.move(output_file.name, self.outfile)
+#            else:
+#                os.remove(output_file.name)
+#        else:
+#            print(self.__outputBuffer)
 
         
 
