@@ -181,6 +181,9 @@ class AddPPSer:
                         if(r_intent_in.search(m_parameters.group(0))):
                             # input parameter
                             declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                            print('Declaration line')
+                            print(declaration_line)
+                            print('Declaration line end')
                             parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
                             in_parameters.extend(parameter_list)
                         elif(r_intent_out.search(m_parameters.group(0))):
@@ -204,7 +207,12 @@ class AddPPSer:
 
                         # here I'm assuming that all the declarations appear at the beginning
                         # of a function/subroutine, so their section should now be over
-
+                        # remove spaces in variable lists
+                        in_parameters = [var.strip(' ') for var in in_parameters]
+                        out_parameters = [var.strip(' ') for var in out_parameters]
+                        inout_parameters = [var.strip(' ') for var in inout_parameters]
+                        nointent_parameters = [var.strip(' ') for var in nointent_parameters]
+                        
                         # print in and inout parameters
                         if(print_in_parameters):
                             for var in in_parameters:
@@ -237,7 +245,7 @@ class AddPPSer:
     def process(self):
 
         # parse file
-        self.parse()
+#        self.parse()
 
         # generate output buffer
         self.parse(generate=True)
