@@ -91,6 +91,7 @@ class AddPPSer:
         try:
             # regex for start and end of functions/subroutines
             r_start = re.compile('^ *(subroutine|function).*', re.IGNORECASE)
+            r_start_function = re.compile('^ *(function).*', re.IGNORECASE)
             r_end = re.compile('^ *(end subroutine|end function).*', re.IGNORECASE)
             
             # regex for parameter declaration
@@ -100,7 +101,9 @@ class AddPPSer:
             r_intent_inout = re.compile('.* INTENT\( INOUT \)\s* ::.*') 
             r_par_split_pattern = r'::'
             r_par_list_split_pattern = r','
-            
+
+            # regex for execution path control
+            r_return = re.compile('.*(return).*', re.IGNORECASE)
             
             # in/out/inout parameter storage
             in_parameters=[]
@@ -111,6 +114,9 @@ class AddPPSer:
             # loop over file lines and identify functions/subroutines and parameter declaration
             is_fun_subroutine = False
             print_in_parameters = True
+            print_inout_parameters = True
+            print_out_parameters = True
+            function_name = ""
             self.line = ''
             for line in input_file:
                 # Skip line already handled
@@ -127,7 +133,16 @@ class AddPPSer:
                     # this is the start of a  subroutine/function
                     is_fun_subroutine = True
                     print(m_start.group())
-                    
+                    m_start_function = r_start_function.search(m_start.group())
+                    if(m_start_function):
+                        # this is a function, look for return parameter
+                        print("THIS IS A FUNCTION!")
+                        # TODO: we are assuming function name is the return parameter,
+                        # include other cases
+                        print('function name:')
+                        function_name = (re.split('\s|\(',line))[1]
+                        out_parameters.append(function_name)
+
                 # check if subroutine/function is finished                
                 m_end = r_end.search(line)
                 if(m_end):
@@ -141,20 +156,27 @@ class AddPPSer:
                     print(inout_parameters)
                     print("No intent parameters")
                     print(nointent_parameters)
+                    print(m_end.group())
+                    print()
+                    print_in_parameters = True
+                    print_out_parameters=True
+                    print_inout_parameters = True
+                    # print out/inout parameter serialization directives
+                    for var in inout_parameters:
+                        self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                    for var in out_parameters:
+                        self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
                     in_parameters=[] 
                     out_parameters=[] 
                     inout_parameters=[]
                     nointent_parameters=[]
-                    print(m_end.group())
-                    print()
-                    print_in_parameters=True
- 
+
+
 
                 # if we are in subroutine/function look for parameters
                 if(is_fun_subroutine):
                     m_parameters = r_parameter.search(line)
                     if(m_parameters):
-                        
                         # find parameters intent
                         if(r_intent_in.search(m_parameters.group(0))):
                             # input parameter
@@ -176,23 +198,41 @@ class AddPPSer:
                             declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                             parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
                             nointent_parameters.extend(parameter_list)
+                            # if we are in a function, check if among nointent parameters we have
+                            # the function output
                     else:
 
                         # here I'm assuming that all the declarations appear at the beginning
                         # of a function/subroutine, so their section should now be over
+
+                        # print in and inout parameters
                         if(print_in_parameters):
                             for var in in_parameters:
-                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n" 
+                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
                                 print_in_parameters=False
-                    
+                        if(print_inout_parameters):
+                            for var in inout_parameters:
+                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                                print_inout_parameters=False
+
+                    # check if there is a return statement
+                    m_return = r_return.search(line)
+                    if(m_return):
+                        print('return line found')
+                        # print out/inout parameter serialization directives
+                        for var in inout_parameters:
+                            self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                        for var in out_parameters:
+                            self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+
+
                 if(generate):
                     self.__outputBuffer += line
 
-                            
+
         finally:
             input_file.close()
 
-        
     # main processing method
     def process(self):
 
@@ -202,7 +242,7 @@ class AddPPSer:
         # generate output buffer
         self.parse(generate=True)
         print(self.__outputBuffer)
-        
+
 #        # write output
 #        if self.outfile != '':
 #            output_file = tempfile.NamedTemporaryFile(delete=False)
@@ -224,7 +264,6 @@ class AddPPSer:
 #        else:
 #            print(self.__outputBuffer)
 
-        
 
 def parse_args():
     from optparse import OptionParser
