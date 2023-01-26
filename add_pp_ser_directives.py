@@ -116,7 +116,8 @@ class AddPPSer:
             print_in_parameters = True
             print_inout_parameters = True
             print_out_parameters = True
-            function_name = ""
+            print_init_directives = True
+            fun_subroutine_name = ""
             self.line = ''
             for line in input_file:
                 # Skip line already handled
@@ -132,16 +133,17 @@ class AddPPSer:
                 if(m_start):
                     # this is the start of a  subroutine/function
                     is_fun_subroutine = True
+                    print_init_directives = False
                     print(m_start.group())
                     m_start_function = r_start_function.search(m_start.group())
+                    fun_subroutine_name = (re.split('\s|\(',line))[1]
                     if(m_start_function):
                         # this is a function, look for return parameter
                         print("THIS IS A FUNCTION!")
                         # TODO: we are assuming function name is the return parameter,
                         # include other cases
                         print('function name:')
-                        function_name = (re.split('\s|\(',line))[1]
-                        out_parameters.append(function_name)
+                        out_parameters.append(fun_subroutine_name)
 
                 # check if subroutine/function is finished                
                 m_end = r_end.search(line)
@@ -161,6 +163,7 @@ class AddPPSer:
                     print_in_parameters = True
                     print_out_parameters=True
                     print_inout_parameters = True
+                    print_init_directives = True
                     # print out/inout parameter serialization directives
                     for var in inout_parameters:
                         self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
@@ -170,13 +173,15 @@ class AddPPSer:
                     out_parameters=[] 
                     inout_parameters=[]
                     nointent_parameters=[]
-
+                    fun_subroutine_name = ""
 
 
                 # if we are in subroutine/function look for parameters
                 if(is_fun_subroutine):
                     m_parameters = r_parameter.search(line)
                     if(m_parameters):
+                        # get ready to print init directives when variable declaration block ends
+                        print_init_directives = True
                         # find parameters intent
                         if(r_intent_in.search(m_parameters.group(0))):
                             # input parameter
@@ -212,8 +217,15 @@ class AddPPSer:
                         out_parameters = [var.strip(' ') for var in out_parameters]
                         inout_parameters = [var.strip(' ') for var in inout_parameters]
                         nointent_parameters = [var.strip(' ') for var in nointent_parameters]
-                        
-                        # print in and inout parameters
+
+                        # add init serialization directives
+                        if(print_init_directives):
+                            self.__outputBuffer += '!$ser init directory="./ser_data" prefix=' + fun_subroutine_name + '\n'
+                            self.__outputBuffer += '!$ser mode write\n'
+                            print_init_directives = False
+                        !$ser savepoint compute-area area_value=area_val
+
+                        # add in and inout parameter serialization directives
                         if(print_in_parameters):
                             for var in in_parameters:
                                 self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
