@@ -50,29 +50,29 @@ class AddPPSer:
 
         
     # Identify subroutine or function
-    def __re_subroutine_function(self):
-
-        r = re.compile('^ *(subroutine|function).*', re.IGNORECASE)
-        r_cont = re.compile('^ *(subroutine|function)([^!]*)&', re.IGNORECASE)
-        m = r.search(self.__line)
-        m_cont = r_cont.search(self.__line)
-        if m and not m_cont:
-            self.__produce_use_stmt()
-        elif m and m_cont:
-            # look ahead to find the correct line to insert the use statement
-            lookahead_index = self.__linenum + 1
-
-            # look ahead
-            nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
-            r_continued_line = re.compile('^([^!]*)&', re.IGNORECASE)
-            while r_continued_line.search(nextline):
-                self.__line += nextline
-                lookahead_index += 1
-                nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
-            self.__line += nextline
-            self.__skip_next_n_lines = lookahead_index - self.__linenum
-            self.__produce_use_stmt()
-        return m
+#    def __re_subroutine_function(self):
+#
+#        r = re.compile('^ *(subroutine|function).*', re.IGNORECASE)
+#        r_cont = re.compile('^ *(subroutine|function)([^!]*)&', re.IGNORECASE)
+#        m = r.search(self.__line)
+#        m_cont = r_cont.search(self.__line)
+#        if m and not m_cont:
+#            self.__produce_use_stmt()
+#        elif m and m_cont:
+#            # look ahead to find the correct line to insert the use statement
+#            lookahead_index = self.__linenum + 1
+#
+#            # look ahead
+#            nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
+#            r_continued_line = re.compile('^([^!]*)&', re.IGNORECASE)
+#            while r_continued_line.search(nextline):
+#                self.__line += nextline
+#                lookahead_index += 1
+#                nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
+#            self.__line += nextline
+#            self.__skip_next_n_lines = lookahead_index - self.__linenum
+#            self.__produce_use_stmt()
+#        return m
 
     # execute one parsing pass over file
     def parse(self, generate=False):
@@ -118,7 +118,7 @@ class AddPPSer:
             print_out_parameters = True
             print_init_directives = True
             fun_subroutine_name = ""
-            self.line = ''
+            new_line = ''
             for line in input_file:
                 # Skip line already handled
                 if(self.__skip_next_n_lines > 0):
@@ -126,17 +126,35 @@ class AddPPSer:
                     self.__linenum += 1
                     continue
                 self.__linenum += 1
-                
+
+                if(re.match('.* &', line, re.IGNORECASE)):
+                    print('multi line')
+                    print(line)
+                    new_line += re.sub('&', '', line, re.IGNORECASE)
+                    new_line = new_line.rstrip()
+                    print(new_line)
+                    print('multi line')
+                    if(generate):
+                        self.__outputBuffer += line
+                    continue
+
+
+                print('modified line final')
+                new_line += line
+                print(new_line)
+                print('modified line final')
+
                 # identify subroutine and function
                 # check if subroutine/function is started
-                m_start = r_start.search(line)
+                m_start = r_start.search(new_line)
                 if(m_start):
                     # this is the start of a  subroutine/function
                     is_fun_subroutine = True
                     print_init_directives = False
                     print(m_start.group())
                     m_start_function = r_start_function.search(m_start.group())
-                    fun_subroutine_name = (re.split('\s|\(',line))[1]
+#                    fun_subroutine_name = (re.split('\s|\(',line))[1]
+                    fun_subroutine_name = (re.split('\s|\(',new_line))[1]
                     if(m_start_function):
                         # this is a function, look for return parameter
                         print("THIS IS A FUNCTION!")
@@ -146,7 +164,7 @@ class AddPPSer:
                         out_parameters.append(fun_subroutine_name)
 
                 # check if subroutine/function is finished                
-                m_end = r_end.search(line)
+                m_end = r_end.search(new_line)
                 if(m_end):
                     # this is the end of a subroutine/function
                     is_fun_subroutine = False
@@ -166,9 +184,9 @@ class AddPPSer:
                     print_init_directives = True
                     # print out/inout parameter serialization directives
                     for var in inout_parameters:
-                        self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                        self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                     for var in out_parameters:
-                        self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                        self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                     in_parameters=[] 
                     out_parameters=[] 
                     inout_parameters=[]
@@ -178,7 +196,7 @@ class AddPPSer:
 
                 # if we are in subroutine/function look for parameters
                 if(is_fun_subroutine):
-                    m_parameters = r_parameter.search(line)
+                    m_parameters = r_parameter.search(new_line)
                     if(m_parameters):
                         # get ready to print init directives when variable declaration block ends
                         print_init_directives = True
@@ -212,43 +230,51 @@ class AddPPSer:
 
                         # here I'm assuming that all the declarations appear at the beginning
                         # of a function/subroutine, so their section should now be over
+
                         # remove spaces in variable lists
                         in_parameters = [var.strip(' ') for var in in_parameters]
                         out_parameters = [var.strip(' ') for var in out_parameters]
                         inout_parameters = [var.strip(' ') for var in inout_parameters]
                         nointent_parameters = [var.strip(' ') for var in nointent_parameters]
+                        
+                        # in case of multilimne declaration, remove line continuation 
+                        in_parameters = [var.strip('&') for var in in_parameters]
+                        out_parameters = [var.strip('&') for var in out_parameters]
+                        inout_parameters = [var.strip('&') for var in inout_parameters]
+                        nointent_parameters = [var.strip('&') for var in nointent_parameters]
 
                         # add init serialization directives
                         if(print_init_directives):
                             self.__outputBuffer += '!$ser init directory="./ser_data" prefix=' + fun_subroutine_name + '\n'
                             self.__outputBuffer += '!$ser mode write\n'
                             print_init_directives = False
-                        !$ser savepoint compute-area area_value=area_val
+#                        !$ser savepoint compute-area area_value=area_val
 
                         # add in and inout parameter serialization directives
                         if(print_in_parameters):
                             for var in in_parameters:
-                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                                self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                                 print_in_parameters=False
                         if(print_inout_parameters):
                             for var in inout_parameters:
-                                self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                                self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                                 print_inout_parameters=False
 
                     # check if there is a return statement
-                    m_return = r_return.search(line)
+                    m_return = r_return.search(new_line)
                     if(m_return):
                         print('return line found')
                         # print out/inout parameter serialization directives
                         for var in inout_parameters:
-                            self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                         for var in out_parameters:
-                            self.__outputBuffer += " !$ser data " + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
 
 
                 if(generate):
                     self.__outputBuffer += line
 
+                new_line = ''
 
         finally:
             input_file.close()
