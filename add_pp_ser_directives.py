@@ -10,7 +10,11 @@ import shutil
 import sys
 import tempfile
 
-
+def to_ascii(text):
+    if sys.version_info[0] == 3:
+        return bytes(text, 'ascii')
+    else:
+        return str(text)
 
 """
 add_pp_ser_directives.py
@@ -47,7 +51,6 @@ class AddPPSer:
         self.__linenum = 0            # current line number
         self.__outputBuffer = ''      # preprocessed file
         self.__skip_next_n_lines = 0  # Number of line to skip (use for lookahead)
-
         
     # Identify subroutine or function
 #    def __re_subroutine_function(self):
@@ -73,6 +76,7 @@ class AddPPSer:
 #            self.__skip_next_n_lines = lookahead_index - self.__linenum
 #            self.__produce_use_stmt()
 #        return m
+
 
     # execute one parsing pass over file
     def parse(self, generate=False):
@@ -287,28 +291,28 @@ class AddPPSer:
 
         # generate output buffer
         self.parse(generate=True)
-        print(self.__outputBuffer)
+#        print(self.__outputBuffer)
 
-#        # write output
-#        if self.outfile != '':
-#            output_file = tempfile.NamedTemporaryFile(delete=False)
-#            # same permissions as infile
-#            os.chmod(output_file.name, os.stat(self.infile).st_mode)
-#            output_file.write(to_ascii(self.__outputBuffer))
-#            output_file.close()
-#            useit = True
-#            if os.path.isfile(self.outfile) and not self.identical:
-#                if filecmp.cmp(self.outfile, output_file.name):
-#                    useit = False
-#            if useit:
-#                try:
-#                    os.rename(output_file.name, self.outfile)
-#                except:
-#                    shutil.move(output_file.name, self.outfile)
-#            else:
-#                os.remove(output_file.name)
-#        else:
-#            print(self.__outputBuffer)
+        # write output
+        if self.outfile != '':
+            output_file = tempfile.NamedTemporaryFile(delete=False)
+            # same permissions as infile
+            os.chmod(output_file.name, os.stat(self.infile).st_mode)
+            output_file.write(to_ascii(self.__outputBuffer))
+            output_file.close()
+            useit = True
+            if os.path.isfile(self.outfile) and not self.identical:
+                if filecmp.cmp(self.outfile, output_file.name):
+                    useit = False
+            if useit:
+                try:
+                    os.rename(output_file.name, self.outfile)
+                except:
+                    shutil.move(output_file.name, self.outfile)
+            else:
+                os.remove(output_file.name)
+        else:
+            print(self.__outputBuffer)
 
 
 def parse_args():
