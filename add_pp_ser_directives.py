@@ -100,9 +100,9 @@ class AddPPSer:
             
             # regex for parameter declaration
             r_parameter = re.compile('.* (::).*')
-            r_intent_in = re.compile('.* INTENT\( IN \)\s* ::.*') 
-            r_intent_out = re.compile('.* INTENT\( OUT \)\s* ::.*') 
-            r_intent_inout = re.compile('.* INTENT\( INOUT \)\s* ::.*') 
+            r_intent_in = re.compile('.* INTENT\(.*IN.*\)\s* ::.*')
+            r_intent_out = re.compile('.* INTENT\(.*OUT.*\)\s* ::.*')
+            r_intent_inout = re.compile('.* INTENT\(.*INOUT.*\)\s* ::.*')
             r_par_split_pattern = r'::'
             r_par_list_split_pattern = r','
 
