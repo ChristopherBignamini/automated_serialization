@@ -131,23 +131,28 @@ class AddPPSer:
                     continue
                 self.__linenum += 1
 
-                if(re.match('.* &', line, re.IGNORECASE)):
-                    print('multi line')
-                    print(line)
-                    new_line += re.sub('&', '', line, re.IGNORECASE)
+                # Check if end of line comments are present and remove them
+                current_line = line
+                if(re.match('.*!', current_line)):
+                    print('line with eol comment')
+                    print(current_line)
+                    current_line = re.sub('!.*', '', current_line, re.IGNORECASE)
+                    print(current_line)
+                    print('line with eol comment')
+                
+                # Check if we are dealing with multiline
+                if(re.match('.* &', current_line, re.IGNORECASE)):
+                    new_line += re.sub('&', '', current_line, re.IGNORECASE)
                     new_line = new_line.rstrip()
-                    print(new_line)
-                    print('multi line')
                     if(generate):
                         self.__outputBuffer += line
                     continue
 
-
-                print('modified line final')
-                new_line += line
+                print("Aggiorno la linea:")
+                new_line += current_line
                 print(new_line)
-                print('modified line final')
-
+                print("Fine aggiornamento")
+                
                 # identify subroutine and function
                 # check if subroutine/function is started
                 m_start = r_start.search(new_line)
@@ -155,16 +160,13 @@ class AddPPSer:
                     # this is the start of a  subroutine/function
                     is_fun_subroutine = True
                     print_init_directives = False
-                    print(m_start.group())
                     m_start_function = r_start_function.search(m_start.group())
-#                    fun_subroutine_name = (re.split('\s|\(',line))[1]
-                    fun_subroutine_name = (re.split('\s|\(',new_line))[1]
+                    new_line_stripped = new_line.replace(" ","")
+                    fun_subroutine_name = (re.split('\s*SUBROUTINE|\s*FUNCTION|\(',new_line_stripped))[1]
                     if(m_start_function):
                         # this is a function, look for return parameter
-                        print("THIS IS A FUNCTION!")
                         # TODO: we are assuming function name is the return parameter,
                         # include other cases
-                        print('function name:')
                         out_parameters.append(fun_subroutine_name)
 
                 # check if subroutine/function is finished                
@@ -208,9 +210,6 @@ class AddPPSer:
                         if(r_intent_in.search(m_parameters.group(0))):
                             # input parameter
                             declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                            print('Declaration line')
-                            print(declaration_line)
-                            print('Declaration line end')
                             parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
                             in_parameters.extend(parameter_list)
                         elif(r_intent_out.search(m_parameters.group(0))):
@@ -267,7 +266,6 @@ class AddPPSer:
                     # check if there is a return statement
                     m_return = r_return.search(new_line)
                     if(m_return):
-                        print('return line found')
                         # print out/inout parameter serialization directives
                         for var in inout_parameters:
                             self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
