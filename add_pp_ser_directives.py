@@ -130,147 +130,153 @@ class AddPPSer:
                     self.__linenum += 1
                     continue
                 self.__linenum += 1
-
-                # Check if end of line comments are present and remove them
-                current_line = line
-                if(re.match('.*!', current_line)):
-                    print('line with eol comment')
-                    print(current_line)
-                    current_line = re.sub('!.*', '', current_line, re.IGNORECASE)
-                    print(current_line)
-                    print('line with eol comment')
+                    
+                # Check if current line is empty or is a commented one
+                if ((line.strip() != "") and (re.match('\s*!', line)==None)):
+                    
+                    # Check if end of line comments are present and remove them
+                    current_line = line
+                    if(re.match('.*!', current_line)):
+                        current_line = re.sub('!.*', '', current_line, re.IGNORECASE)
                 
-                # Check if we are dealing with multiline
-                if(re.match('.* &', current_line, re.IGNORECASE)):
-                    new_line += re.sub('&', '', current_line, re.IGNORECASE)
-                    new_line = new_line.rstrip()
-                    if(generate):
-                        self.__outputBuffer += line
-                    continue
+                    # Check if we are dealing with multiline
+                    if(re.match('.* &', current_line, re.IGNORECASE)):
+                        new_line += re.sub('&', '', current_line, re.IGNORECASE)
+                        new_line = new_line.rstrip()
+                        if(generate):
+                            self.__outputBuffer += line
+                        continue
 
-                print("Aggiorno la linea:")
-                new_line += current_line
-                print(new_line)
-                print("Fine aggiornamento")
+                    new_line += current_line
                 
-                # identify subroutine and function
-                # check if subroutine/function is started
-                m_start = r_start.search(new_line)
-                if(m_start):
-                    # this is the start of a  subroutine/function
-                    is_fun_subroutine = True
-                    print_init_directives = False
-                    m_start_function = r_start_function.search(m_start.group())
-                    new_line_stripped = new_line.replace(" ","")
-                    fun_subroutine_name = (re.split('\s*SUBROUTINE|\s*FUNCTION|\(',new_line_stripped))[1]
-                    if(m_start_function):
-                        # this is a function, look for return parameter
-                        # TODO: we are assuming function name is the return parameter,
-                        # include other cases
-                        out_parameters.append(fun_subroutine_name)
+                    # identify subroutine and function
+                    # check if subroutine/function is started
+                    m_start = r_start.search(new_line)
+                    if(m_start):
+                        # this is the start of a  subroutine/function
+                        is_fun_subroutine = True
+                        print_init_directives = False
+                        m_start_function = r_start_function.search(m_start.group())
+                        new_line_stripped = new_line.replace(" ","")
+                        fun_subroutine_name = (re.split('\s*SUBROUTINE|\s*FUNCTION|\(',new_line_stripped))[1]
+                        if(m_start_function):
+                            # this is a function, look for return parameter
+                            # TODO: we are assuming function name is the return parameter,
+                            # include other cases
+                            out_parameters.append(fun_subroutine_name)
 
-                # check if subroutine/function is finished                
-                m_end = r_end.search(new_line)
-                if(m_end):
-                    # this is the end of a subroutine/function
-                    is_fun_subroutine = False
-                    print("Input parameters")
-                    print(in_parameters)
-                    print("Output parameters")
-                    print(out_parameters)
-                    print("Input/Output parameters")
-                    print(inout_parameters)
-                    print("No intent parameters")
-                    print(nointent_parameters)
-                    print(m_end.group())
-                    print()
-                    print_in_parameters = True
-                    print_out_parameters=True
-                    print_inout_parameters = True
-                    print_init_directives = True
-                    # print out/inout parameter serialization directives
-                    for var in inout_parameters:
-                        self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
-                    for var in out_parameters:
-                        self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
-                    in_parameters=[] 
-                    out_parameters=[] 
-                    inout_parameters=[]
-                    nointent_parameters=[]
-                    fun_subroutine_name = ""
-
-
-                # if we are in subroutine/function look for parameters
-                if(is_fun_subroutine):
-                    m_parameters = r_parameter.search(new_line)
-                    if(m_parameters):
-                        # get ready to print init directives when variable declaration block ends
+                    # check if subroutine/function is finished                
+                    m_end = r_end.search(new_line)
+                    if(m_end):
+                        # this is the end of a subroutine/function
+                        is_fun_subroutine = False
+                        print("Input parameters")
+                        print(in_parameters)
+                        print("Output parameters")
+                        print(out_parameters)
+                        print("Input/Output parameters")
+                        print(inout_parameters)
+                        print("No intent parameters")
+                        print(nointent_parameters)
+                        print_in_parameters = True
+                        print_out_parameters=True
+                        print_inout_parameters = True
                         print_init_directives = True
-                        # find parameters intent
-                        if(r_intent_in.search(m_parameters.group(0))):
-                            # input parameter
-                            declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                            parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
-                            in_parameters.extend(parameter_list)
-                        elif(r_intent_out.search(m_parameters.group(0))):
-                            # output parameter
-                            declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                            parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
-                            out_parameters.extend(parameter_list)
-                        elif(r_intent_inout.search(m_parameters.group(0))):
-                            # inout parameter
-                            declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                            parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
-                            inout_parameters.extend(parameter_list)
-                        else:
-                            # nointent parameter
-                            declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                            parameter_list = re.split(r_par_list_split_pattern, declaration_line[1])
-                            nointent_parameters.extend(parameter_list)
-                            # if we are in a function, check if among nointent parameters we have
-                            # the function output
-                    else:
-
-                        # here I'm assuming that all the declarations appear at the beginning
-                        # of a function/subroutine, so their section should now be over
-
-                        # remove spaces in variable lists
-                        in_parameters = [var.strip(' ') for var in in_parameters]
-                        out_parameters = [var.strip(' ') for var in out_parameters]
-                        inout_parameters = [var.strip(' ') for var in inout_parameters]
-                        nointent_parameters = [var.strip(' ') for var in nointent_parameters]
-                        
-                        # in case of multilimne declaration, remove line continuation 
-                        in_parameters = [var.strip('&') for var in in_parameters]
-                        out_parameters = [var.strip('&') for var in out_parameters]
-                        inout_parameters = [var.strip('&') for var in inout_parameters]
-                        nointent_parameters = [var.strip('&') for var in nointent_parameters]
-
-                        # add init serialization directives
-                        if(print_init_directives):
-                            self.__outputBuffer += '!$ser init directory="./ser_data" prefix=' + fun_subroutine_name + '\n'
-                            self.__outputBuffer += '!$ser mode write\n'
-                            print_init_directives = False
-#                        !$ser savepoint compute-area area_value=area_val
-
-                        # add in and inout parameter serialization directives
-                        if(print_in_parameters):
-                            for var in in_parameters:
-                                self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
-                                print_in_parameters=False
-                        if(print_inout_parameters):
-                            for var in inout_parameters:
-                                self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
-                                print_inout_parameters=False
-
-                    # check if there is a return statement
-                    m_return = r_return.search(new_line)
-                    if(m_return):
                         # print out/inout parameter serialization directives
                         for var in inout_parameters:
                             self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
                         for var in out_parameters:
                             self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                        in_parameters=[] 
+                        out_parameters=[] 
+                        inout_parameters=[]
+                        nointent_parameters=[]
+                        fun_subroutine_name = ""
+
+
+                    # if we are in subroutine/function look for parameters
+                    if(is_fun_subroutine):
+                        m_parameters = r_parameter.search(new_line)
+                        if(m_parameters):
+                            # get ready to print init directives when variable declaration block ends
+                            print_init_directives = True
+                            # find parameters intent
+                            if(r_intent_in.search(m_parameters.group(0))):
+                                # input parameter
+                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                                cleaned_declaration_line=declaration_line[1]
+                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
+                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
+                                in_parameters.extend(parameter_list)
+                            elif(r_intent_out.search(m_parameters.group(0))):
+                                # output parameter
+                                # TODO: code duplication
+                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                                cleaned_declaration_line=declaration_line[1]
+                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
+                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
+                                out_parameters.extend(parameter_list)
+                            elif(r_intent_inout.search(m_parameters.group(0))):
+                                # inout parameter
+                                # TODO: code duplication
+                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                                cleaned_declaration_line=declaration_line[1]
+                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
+                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
+                                inout_parameters.extend(parameter_list)
+                            else:
+                                # nointent parameter
+                                # TODO: code duplication
+                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                                cleaned_declaration_line=declaration_line[1]
+                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
+                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
+                                nointent_parameters.extend(parameter_list)
+                                # if we are in a function, check if among nointent parameters we have
+                                # the function output
+                        else:
+
+                            # here I'm assuming that all the declarations appear at the beginning
+                            # of a function/subroutine, so their section should now be over
+                            
+                            # remove spaces in variable lists
+                            in_parameters = [var.strip(' ') for var in in_parameters]
+                            out_parameters = [var.strip(' ') for var in out_parameters]
+                            inout_parameters = [var.strip(' ') for var in inout_parameters]
+                            nointent_parameters = [var.strip(' ') for var in nointent_parameters]
+                        
+                            # in case of multiline declaration, remove line continuation
+                            # TODO: code duplication
+                            in_parameters = [var.strip('&') for var in in_parameters]
+                            out_parameters = [var.strip('&') for var in out_parameters]
+                            inout_parameters = [var.strip('&') for var in inout_parameters]
+                            nointent_parameters = [var.strip('&') for var in nointent_parameters]
+
+                            # add init serialization directives
+                            if(print_init_directives):
+                                self.__outputBuffer += '!$ser init directory="./ser_data" prefix=' + fun_subroutine_name + '\n'
+                                self.__outputBuffer += '!$ser mode write\n'
+                                print_init_directives = False
+                                #                        !$ser savepoint compute-area area_value=area_val
+
+                            # add in and inout parameter serialization directives
+                            if(print_in_parameters):
+                                for var in in_parameters:
+                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    print_in_parameters=False
+                            if(print_inout_parameters):
+                                for var in inout_parameters:
+                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    print_inout_parameters=False
+
+                            # check if there is a return statement
+                            m_return = r_return.search(new_line)
+                            if(m_return):
+                                # print out/inout parameter serialization directives
+                                for var in inout_parameters:
+                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                for var in out_parameters:
+                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
 
 
                 if(generate):
