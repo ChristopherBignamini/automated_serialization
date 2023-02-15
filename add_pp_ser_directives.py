@@ -99,10 +99,10 @@ class AddPPSer:
             r_end = re.compile('^ *(end subroutine|end function).*', re.IGNORECASE)
             
             # regex for parameter declaration
-            r_parameter = re.compile('.* (::).*')
-            r_intent_in = re.compile('.* INTENT\(.*IN.*\)\s* ::.*')
-            r_intent_out = re.compile('.* INTENT\(.*OUT.*\)\s* ::.*')
-            r_intent_inout = re.compile('.* INTENT\(.*INOUT.*\)\s* ::.*')
+            r_parameter = re.compile('.*(::).*')
+            r_intent_in = re.compile('.*INTENT\(.*IN.*\)')#\s* ::.*')
+            r_intent_out = re.compile('.*INTENT\(.*OUT.*\)')#\s* ::.*')
+            r_intent_inout = re.compile('.*INTENT\(.*INOUT.*\)')#\s* ::.*')
             r_par_split_pattern = r'::'
             r_par_list_split_pattern = r','
 
@@ -130,15 +130,16 @@ class AddPPSer:
                     self.__linenum += 1
                     continue
                 self.__linenum += 1
-                    
-                # Check if current line is empty or is a commented one
-                if ((line.strip() != "") and (re.match('\s*!', line)==None)):
+
+                # Check if current line is empty, is a commented one or a preprocessor directive
+                if ((line.strip() != "") and (re.match('\s*!', line)==None) and
+                    (re.match('#if', line)==None) and (re.match('#endif', line)==None) and (re.match('#else', line)==None)):
                     
                     # Check if end of line comments are present and remove them
                     current_line = line
                     if(re.match('.*!', current_line)):
                         current_line = re.sub('!.*', '', current_line, re.IGNORECASE)
-                
+
                     # Check if we are dealing with multiline
                     if(re.match('.* &', current_line, re.IGNORECASE)):
                         new_line += re.sub('&', '', current_line, re.IGNORECASE)
@@ -201,7 +202,15 @@ class AddPPSer:
                             # get ready to print init directives when variable declaration block ends
                             print_init_directives = True
                             # find parameters intent
-                            if(r_intent_in.search(m_parameters.group(0))):
+                            if(r_intent_inout.search(m_parameters.group(0))):
+                                # inout parameter
+                                # TODO: code duplication
+                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
+                                cleaned_declaration_line=declaration_line[1]
+                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
+                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
+                                inout_parameters.extend(parameter_list)
+                            elif(r_intent_in.search(m_parameters.group(0))):
                                 # input parameter
                                 declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                                 cleaned_declaration_line=declaration_line[1]
@@ -216,14 +225,6 @@ class AddPPSer:
                                 cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
                                 parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
                                 out_parameters.extend(parameter_list)
-                            elif(r_intent_inout.search(m_parameters.group(0))):
-                                # inout parameter
-                                # TODO: code duplication
-                                declaration_line = re.split(r_par_split_pattern, m_parameters.group())
-                                cleaned_declaration_line=declaration_line[1]
-                                cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
-                                parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
-                                inout_parameters.extend(parameter_list)
                             else:
                                 # nointent parameter
                                 # TODO: code duplication
