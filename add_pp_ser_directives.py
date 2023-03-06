@@ -133,8 +133,9 @@ class AddPPSer:
 
                 # Check if current line is empty, is a commented one or a preprocessor directive
                 if ((line.strip() != "") and (re.match('\s*!', line)==None) and
-                    (re.match('#if', line)==None) and (re.match('#endif', line)==None) and (re.match('#else', line)==None)):
-                    
+                    (re.match('#if', line)==None) and (re.match('#endif', line)==None) and
+                    (re.match('#else', line)==None) and (re.match('#undef', line)==None)): #TODO: more compact syntax
+
                     # Check if end of line comments are present and remove them
                     current_line = line
                     if(re.match('.*!', current_line)):
@@ -185,9 +186,9 @@ class AddPPSer:
                         print_init_directives = True
                         # print out/inout parameter serialization directives
                         for var in inout_parameters:
-                            self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data end_inout_" + var + "=" + var + "\n"
                         for var in out_parameters:
-                            self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data end_out_" + var + "=" + var + "\n"
                         in_parameters=[] 
                         out_parameters=[] 
                         inout_parameters=[]
@@ -255,29 +256,34 @@ class AddPPSer:
 
                             # add init serialization directives
                             if(print_init_directives):
-                                self.__outputBuffer += '!$ser init directory="./ser_data" prefix=' + fun_subroutine_name + '\n'
+                                self.__outputBuffer += '!$ser init directory="./ser_data" prefix="' + fun_subroutine_name + '"\n'
                                 self.__outputBuffer += '!$ser mode write\n'
+                                self.__outputBuffer += '!$ser savepoint ' + fun_subroutine_name
+                                if('jg' in in_parameters):
+                                    self.__outputBuffer += ' id=jg'
+                                self.__outputBuffer += '\n'
+#$ser savepoint call-diffusion-init nproma=nproma date=TRIM(date) id=jg nshift_total=nshift nlev=nlev dtime=dtime linit=linit limited_area=l_limited_area num_cells=p_patch%n_patch_cells num_edges=p_patch%n_patch_edges num_vert=p_patch%n_patch_cells exit=.FALSE.
                                 print_init_directives = False
-                                #                        !$ser savepoint compute-area area_value=area_val
 
                             # add in and inout parameter serialization directives
                             if(print_in_parameters):
                                 for var in in_parameters:
-                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data start_in_" + var + "=" + var + "\n"
                                     print_in_parameters=False
                             if(print_inout_parameters):
                                 for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data start_inout_" + var + "=" + var + "\n"
                                     print_inout_parameters=False
 
                             # check if there is a return statement
                             m_return = r_return.search(new_line)
                             if(m_return):
+                                # TODO: there could be multiple return in the same subroutine/function
                                 # print out/inout parameter serialization directives
                                 for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data ret_inout_" + var + "=" + var + "\n"
                                 for var in out_parameters:
-                                    self.__outputBuffer += "!$ser data " + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data ret_out_" + var + "=" + var + "\n"
 
 
                 if(generate):
