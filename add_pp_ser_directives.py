@@ -165,7 +165,8 @@ class AddPPSer:
                             # this is a function, look for return parameter
                             # TODO: we are assuming function name is the return parameter,
                             # include other cases
-                            out_parameters.append(fun_subroutine_name)
+                            # TODO: use correct function return type
+                            out_parameters.append(('function_return_type', fun_subroutine_name))
 
                     # check if subroutine/function is finished                
                     m_end = r_end.search(new_line)
@@ -186,9 +187,9 @@ class AddPPSer:
                         print_init_directives = True
                         # print out/inout parameter serialization directives
                         for var in inout_parameters:
-                            self.__outputBuffer += "!$ser data end_inout_" + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data end_inout_" + var[1] + "=" + var[1] + "\n"
                         for var in out_parameters:
-                            self.__outputBuffer += "!$ser data end_out_" + var + "=" + var + "\n"
+                            self.__outputBuffer += "!$ser data end_out_" + var[1] + "=" + var[1] + "\n"
                         in_parameters=[] 
                         out_parameters=[] 
                         inout_parameters=[]
@@ -205,54 +206,58 @@ class AddPPSer:
                             # find parameters intent
                             if(r_intent_inout.search(m_parameters.group(0))):
                                 # inout parameter
-                                # TODO: code duplication
+                                # TODO: code duplication in var split and cleanup
                                 declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                                 cleaned_declaration_line=declaration_line[1]
                                 cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
                                 parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
-                                inout_parameters.extend(parameter_list)
+                                parameter_list = [var.strip(' ') for var in parameter_list]
+                                parameter_list = [var.strip('&') for var in parameter_list]
+                                var_type = re.split(r_par_list_split_pattern, declaration_line[0])
+                                for var in parameter_list:
+                                    inout_parameters.append((var_type[0], var))
                             elif(r_intent_in.search(m_parameters.group(0))):
                                 # input parameter
+                                # TODO: code duplication in var split and cleanup
                                 declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                                 cleaned_declaration_line=declaration_line[1]
                                 cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
                                 parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
-                                in_parameters.extend(parameter_list)
+                                parameter_list = [var.strip(' ') for var in parameter_list]
+                                parameter_list = [var.strip('&') for var in parameter_list]
+                                var_type = re.split(r_par_list_split_pattern, declaration_line[0])
+                                for var in parameter_list:
+                                    in_parameters.append((var_type[0], var))
                             elif(r_intent_out.search(m_parameters.group(0))):
                                 # output parameter
-                                # TODO: code duplication
+                                # TODO: code duplication in var split and cleanup
                                 declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                                 cleaned_declaration_line=declaration_line[1]
                                 cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
                                 parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
-                                out_parameters.extend(parameter_list)
+                                parameter_list = [var.strip(' ') for var in parameter_list]
+                                parameter_list = [var.strip('&') for var in parameter_list]
+                                var_type = re.split(r_par_list_split_pattern, declaration_line[0])
+                                for var in parameter_list:
+                                    out_parameters.append((var_type[0], var))
                             else:
                                 # nointent parameter
-                                # TODO: code duplication
+                                # TODO: code duplication in var split and cleanup
                                 declaration_line = re.split(r_par_split_pattern, m_parameters.group())
                                 cleaned_declaration_line=declaration_line[1]
                                 cleaned_declaration_line=re.sub('\(.*\)', '', cleaned_declaration_line)
                                 parameter_list = re.split(r_par_list_split_pattern, cleaned_declaration_line)
-                                nointent_parameters.extend(parameter_list)
+                                parameter_list = [var.strip(' ') for var in parameter_list]
+                                parameter_list = [var.strip('&') for var in parameter_list]
+                                var_type = re.split(r_par_list_split_pattern, declaration_line[0])
+                                for var in parameter_list:
+                                    nointent_parameters.append((var_type[0], var))
                                 # if we are in a function, check if among nointent parameters we have
                                 # the function output
                         else:
 
                             # here I'm assuming that all the declarations appear at the beginning
                             # of a function/subroutine, so their section should now be over
-                            
-                            # remove spaces in variable lists
-                            in_parameters = [var.strip(' ') for var in in_parameters]
-                            out_parameters = [var.strip(' ') for var in out_parameters]
-                            inout_parameters = [var.strip(' ') for var in inout_parameters]
-                            nointent_parameters = [var.strip(' ') for var in nointent_parameters]
-                        
-                            # in case of multiline declaration, remove line continuation
-                            # TODO: code duplication
-                            in_parameters = [var.strip('&') for var in in_parameters]
-                            out_parameters = [var.strip('&') for var in out_parameters]
-                            inout_parameters = [var.strip('&') for var in inout_parameters]
-                            nointent_parameters = [var.strip('&') for var in nointent_parameters]
 
                             # add init serialization directives
                             if(print_init_directives):
@@ -268,11 +273,11 @@ class AddPPSer:
                             # add in and inout parameter serialization directives
                             if(print_in_parameters):
                                 for var in in_parameters:
-                                    self.__outputBuffer += "!$ser data start_in_" + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data start_in_" + var[1] + "=" + var[1] + "\n"
                                     print_in_parameters=False
                             if(print_inout_parameters):
                                 for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data start_inout_" + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data start_inout_" + var[1] + "=" + var[1] + "\n"
                                     print_inout_parameters=False
 
                             # check if there is a return statement
@@ -281,9 +286,9 @@ class AddPPSer:
                                 # TODO: there could be multiple return in the same subroutine/function
                                 # print out/inout parameter serialization directives
                                 for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data ret_inout_" + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data ret_inout_" + var[1] + "=" + var[1] + "\n"
                                 for var in out_parameters:
-                                    self.__outputBuffer += "!$ser data ret_out_" + var + "=" + var + "\n"
+                                    self.__outputBuffer += "!$ser data ret_out_" + var[1] + "=" + var[1] + "\n"
 
 
                 if(generate):
