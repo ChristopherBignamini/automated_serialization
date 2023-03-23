@@ -94,10 +94,10 @@ class AddPPSer:
         self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_v2(:,:,:) = ' + var_name + '(:,:,:)%v2\n'
 
     def addCartesianTypeDecompositionCleanup(self, var_name):
-        self.__outputBuffer += '!ser data deallocate(var_name' + '_x, ' + var_name + '_y, ' + var_name + '_z)\n'
+        self.__outputBuffer += '!ser verbatim \"deallocate(' + var_name + '_x, ' + var_name + '_y, ' + var_name + '_z)\n'
 
     def addTangentTypeDecompositionCleanup(self, var_name):
-        self.__outputBuffer += '!ser data deallocate(var_name' + '_v1, ' + var_name + '_v2)\n'
+        self.__outputBuffer += '!ser verbatim \"deallocate(' + var_name + '_v1, ' + var_name + '_v2)\n'
 
     # execute one parsing pass over file
     def parse(self, generate=False):
@@ -207,16 +207,37 @@ class AddPPSer:
                         print("No intent parameters")
                         print(nointent_parameters)
                         print_in_parameters = True
-                        print_out_parameters=True
+                        print_out_parameters= True
                         print_inout_parameters = True
                         print_init_directives = True
                         # print out/inout parameter serialization directives
-                        for var in self.inout_parameters:
-                            self.__outputBuffer += "!$ser data end_inout_" + var[1] + "=" + var[1] + "\n"
-                        for var in self.out_parameters:
-                            self.__outputBuffer += "!$ser data end_out_" + var[1] + "=" + var[1] + "\n"
+                        for var in self.final_inout_parameters:
+                            if(var[0] == ''):
+                                self.__outputBuffer += "!$ser data end_inout_" + var[2] + "=" + var[2] + "\n"
+                            elif(var[0] == 'cart'):
+                                self.addCartesianTypeSerializationDirectives(var[2], 'end_inout')
+                            elif(var[0] == 'tangent'):
+                                self.addTangentVectorTypeSerializationDirectives(var[2], 'end_inout')
+                        for var in self.final_out_parameters:
+                            if(var[0] == ''):
+                                self.__outputBuffer += "!$ser data end_out_" + var[2] + "=" + var[2] + "\n"
+                            elif(var[0] == 'cart'):
+                                self.addCartesianTypeSerializationDirectives(var[2], 'end_out')
+                            elif(var[0] == 'tangent'):
+                                self.addTangentVectorTypeSerializationDirectives(var[2], 'end_out')
+
                         # deallocate composed data types additional variables
-                        for var in self.in_parameters:
+                        for var in self.final_in_parameters:
+                            if('t_cartesian_coordinates' in var[1]):
+                                self.addCartesianTypeDecompositionCleanup(str(var[2]))
+                            elif('t_tangent_vector' in var[1]):
+                                self.addTangentTypeDecompositionCleanup(str(var[2]))
+                        for var in self.final_inout_parameters:
+                            if('t_cartesian_coordinates' in var[1]):
+                                self.addCartesianTypeDecompositionCleanup(str(var[2]))
+                            elif('t_tangent_vector' in var[1]):
+                                self.addTangentTypeDecompositionCleanup(str(var[2]))
+                        for var in self.final_out_parameters:
                             if('t_cartesian_coordinates' in var[1]):
                                 self.addCartesianTypeDecompositionCleanup(str(var[2]))
                             elif('t_tangent_vector' in var[1]):
@@ -224,6 +245,9 @@ class AddPPSer:
                         self.in_parameters = []
                         self.out_parameters = []
                         self.inout_parameters = []
+                        self.final_in_parameters = []
+                        self.final_out_parameters = []
+                        self.final_inout_parameters = []
                         nointent_parameters = []
                         fun_subroutine_name = ""
 
@@ -377,6 +401,11 @@ class AddPPSer:
                                             self.addCartesianTypeSerializationDirectives(var[2], 'ret_out')
                                         elif(var[0] == 'tangent'):
                                             self.addTangentVectorTypeSerializationDirectives(var[2], 'ret_out')
+                                    for var in self.in_parameters:
+                                        if('t_cartesian_coordinates' in var[1]):
+                                            self.addCartesianTypeDecompositionCleanup(str(var[2]))
+                                        elif('t_tangent_vector' in var[1]):
+                                            self.addTangentTypeDecompositionCleanup(str(var[2]))
 
 
                     if(generate):
