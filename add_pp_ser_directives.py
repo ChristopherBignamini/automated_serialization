@@ -9,6 +9,7 @@ import re
 import shutil
 import sys
 import tempfile
+from varname import nameof
 
 def to_ascii(text):
     if sys.version_info[0] == 3:
@@ -37,6 +38,8 @@ __email__ = 'bignamini@cscs.ch'
 
 class AddPPSer:
 
+
+
     #module='m_serialize', ?
     def __init__(self, infile, outfile='', identical=True, verbose=False):
 
@@ -51,32 +54,50 @@ class AddPPSer:
         self.__linenum = 0            # current line number
         self.__outputBuffer = ''      # preprocessed file
         self.__skip_next_n_lines = 0  # Number of line to skip (use for lookahead)
-        
-    # Identify subroutine or function
-#    def __re_subroutine_function(self):
-#
-#        r = re.compile('^ *(subroutine|function).*', re.IGNORECASE)
-#        r_cont = re.compile('^ *(subroutine|function)([^!]*)&', re.IGNORECASE)
-#        m = r.search(self.__line)
-#        m_cont = r_cont.search(self.__line)
-#        if m and not m_cont:
-#            self.__produce_use_stmt()
-#        elif m and m_cont:
-#            # look ahead to find the correct line to insert the use statement
-#            lookahead_index = self.__linenum + 1
-#
-#            # look ahead
-#            nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
-#            r_continued_line = re.compile('^([^!]*)&', re.IGNORECASE)
-#            while r_continued_line.search(nextline):
-#                self.__line += nextline
-#                lookahead_index += 1
-#                nextline = linecache.getline(os.path.join(self.infile), lookahead_index)
-#            self.__line += nextline
-#            self.__skip_next_n_lines = lookahead_index - self.__linenum
-#            self.__produce_use_stmt()
-#        return m
 
+        # parameter storage
+        self.in_parameters = []
+        self.final_in_parameters = []
+        self.inout_parameters = []
+        self.final_inout_parameters = []
+        self.out_parameters = []
+        self.final_out_parameters = []
+
+    def addCartesianTypeDecomposition(self, var_name, parameter_list):
+        print('cart varname')
+        print(var_name)
+        print('cart varname end')
+        self.__outputBuffer += "real(wp) :: " + var_name + '_x(:,:,:), ' + var_name + '_y(:,:,:), ' + var_name + '_z(:,:,:)\n'
+        parameter_list.append(('cart', 'real(c_double)', var_name))
+
+    def addTangentVectorTypeDecomposition(self, var_name, parameter_list):
+        print('tangent varname')
+        print(var_name)
+        print('tangent varname end')
+        self.__outputBuffer += "real(wp) :: " + var_name + '_v1(:,:,:), ' + var_name + '_v2(:,:,:)\n'
+        parameter_list.append(('tangent', 'real(c_double)', var_name))
+
+    def addCartesianTypeSerializationDirectives(self, var_name, prefix):
+        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_x(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_y(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_z(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        # TODO: add decomposed variable to list?
+        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_x(:,:,:) = ' + var_name + '(:,:,:)%x(1)\n'
+        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_y(:,:,:) = ' + var_name + '(:,:,:)%x(2)\n'
+        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_z(:,:,:) = ' + var_name + '(:,:,:)%x(3)\n'
+
+    def addTangentVectorTypeSerializationDirectives(self, var_name, prefix):
+        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_v1(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_v2(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        # TODO: add decomposed variable to list?
+        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_v1(:,:,:) = ' + var_name + '(:,:,:)%v1\n'
+        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_v2(:,:,:) = ' + var_name + '(:,:,:)%v2\n'
+
+    def addCartesianTypeDecompositionCleanup(self, var_name):
+        self.__outputBuffer += '!ser data deallocate(var_name' + '_x, ' + var_name + '_y, ' + var_name + '_z)\n'
+
+    def addTangentTypeDecompositionCleanup(self, var_name):
+        self.__outputBuffer += '!ser data deallocate(var_name' + '_v1, ' + var_name + '_v2)\n'
 
     # execute one parsing pass over file
     def parse(self, generate=False):
@@ -100,9 +121,9 @@ class AddPPSer:
             
             # regex for parameter declaration
             r_parameter = re.compile('.*(::).*')
-            r_intent_in = re.compile('.*INTENT\(.*IN.*\)')#\s* ::.*')
-            r_intent_out = re.compile('.*INTENT\(.*OUT.*\)')#\s* ::.*')
-            r_intent_inout = re.compile('.*INTENT\(.*INOUT.*\)')#\s* ::.*')
+            r_intent_in = re.compile('.*INTENT\(.*IN.*\)', re.IGNORECASE)#\s* ::.*')
+            r_intent_out = re.compile('.*INTENT\(.*OUT.*\)', re.IGNORECASE)#\s* ::.*')
+            r_intent_inout = re.compile('.*INTENT\(.*INOUT.*\)', re.IGNORECASE)#\s* ::.*')
             r_par_split_pattern = r'::'
             r_par_list_split_pattern = r','
 
@@ -110,9 +131,12 @@ class AddPPSer:
             r_return = re.compile('.*(return).*', re.IGNORECASE)
             
             # in/out/inout parameter storage
-            in_parameters=[]
-            out_parameters=[]
-            inout_parameters=[]
+            self.in_parameters=[]
+            self.final_in_parameters=[]
+            self.out_parameters=[]
+            self.final_out_parameters=[]
+            self.inout_parameters=[]
+            self.final_inout_parameters=[]
             nointent_parameters=[]
 
             # loop over file lines and identify functions/subroutines and parameter declaration
@@ -121,6 +145,7 @@ class AddPPSer:
             print_inout_parameters = True
             print_out_parameters = True
             print_init_directives = True
+            execute_variable_cleanup = True
             fun_subroutine_name = ""
             new_line = ''
             for line in input_file:
@@ -166,7 +191,7 @@ class AddPPSer:
                             # TODO: we are assuming function name is the return parameter,
                             # include other cases
                             # TODO: use correct function return type
-                            out_parameters.append(('function_return_type', fun_subroutine_name))
+                            self.out_parameters.append(('', 'function_return_type', fun_subroutine_name))
 
                     # check if subroutine/function is finished                
                     m_end = r_end.search(new_line)
@@ -174,11 +199,11 @@ class AddPPSer:
                         # this is the end of a subroutine/function
                         is_fun_subroutine = False
                         print("Input parameters")
-                        print(in_parameters)
+                        print(self.in_parameters)
                         print("Output parameters")
-                        print(out_parameters)
+                        print(self.out_parameters)
                         print("Input/Output parameters")
-                        print(inout_parameters)
+                        print(self.inout_parameters)
                         print("No intent parameters")
                         print(nointent_parameters)
                         print_in_parameters = True
@@ -186,14 +211,20 @@ class AddPPSer:
                         print_inout_parameters = True
                         print_init_directives = True
                         # print out/inout parameter serialization directives
-                        for var in inout_parameters:
+                        for var in self.inout_parameters:
                             self.__outputBuffer += "!$ser data end_inout_" + var[1] + "=" + var[1] + "\n"
-                        for var in out_parameters:
+                        for var in self.out_parameters:
                             self.__outputBuffer += "!$ser data end_out_" + var[1] + "=" + var[1] + "\n"
-                        in_parameters=[] 
-                        out_parameters=[] 
-                        inout_parameters=[]
-                        nointent_parameters=[]
+                        # deallocate composed data types additional variables
+                        for var in self.in_parameters:
+                            if('t_cartesian_coordinates' in var[1]):
+                                self.addCartesianTypeDecompositionCleanup(str(var[2]))
+                            elif('t_tangent_vector' in var[1]):
+                                self.addTangentTypeDecompositionCleanup(str(var[2]))
+                        self.in_parameters = []
+                        self.out_parameters = []
+                        self.inout_parameters = []
+                        nointent_parameters = []
                         fun_subroutine_name = ""
 
 
@@ -203,6 +234,8 @@ class AddPPSer:
                         if(m_parameters):
                             # get ready to print init directives when variable declaration block ends
                             print_init_directives = True
+                            # get ready to cleanup variable list when declaration block ends
+                            execute_variable_cleanup = True
                             # find parameters intent
                             if(r_intent_inout.search(m_parameters.group(0))):
                                 # inout parameter
@@ -215,7 +248,7 @@ class AddPPSer:
                                 parameter_list = [var.strip('&') for var in parameter_list]
                                 var_type = re.split(r_par_list_split_pattern, declaration_line[0])
                                 for var in parameter_list:
-                                    inout_parameters.append((var_type[0], var))
+                                    self.inout_parameters.append(('', var_type[0], var))
                             elif(r_intent_in.search(m_parameters.group(0))):
                                 # input parameter
                                 # TODO: code duplication in var split and cleanup
@@ -227,7 +260,7 @@ class AddPPSer:
                                 parameter_list = [var.strip('&') for var in parameter_list]
                                 var_type = re.split(r_par_list_split_pattern, declaration_line[0])
                                 for var in parameter_list:
-                                    in_parameters.append((var_type[0], var))
+                                    self.in_parameters.append(('', var_type[0], var))
                             elif(r_intent_out.search(m_parameters.group(0))):
                                 # output parameter
                                 # TODO: code duplication in var split and cleanup
@@ -239,7 +272,7 @@ class AddPPSer:
                                 parameter_list = [var.strip('&') for var in parameter_list]
                                 var_type = re.split(r_par_list_split_pattern, declaration_line[0])
                                 for var in parameter_list:
-                                    out_parameters.append((var_type[0], var))
+                                    self.out_parameters.append(('', var_type[0], var))
                             else:
                                 # nointent parameter
                                 # TODO: code duplication in var split and cleanup
@@ -251,50 +284,105 @@ class AddPPSer:
                                 parameter_list = [var.strip('&') for var in parameter_list]
                                 var_type = re.split(r_par_list_split_pattern, declaration_line[0])
                                 for var in parameter_list:
-                                    nointent_parameters.append((var_type[0], var))
+                                    nointent_parameters.append(('', var_type[0], var))
                                 # if we are in a function, check if among nointent parameters we have
                                 # the function output
                         else:
 
                             # here I'm assuming that all the declarations appear at the beginning
                             # of a function/subroutine, so their section should now be over
+                            if(self.in_parameters or self.inout_parameters or
+                               self.out_parameters or nointent_parameters):
+                                # create final parameter lists with composed types
+                                # check if we have composed types and add the decomposition code if needed
+                                if(execute_variable_cleanup):
+                                    for var in self.in_parameters:
+                                        if('t_cartesian_coordinates' in var[1]):
+                                            self.addCartesianTypeDecomposition(str(var[2]), self.final_in_parameters)
+                                        elif('t_tangent_vector' in var[1]):
+                                            self.addTangentVectorTypeDecomposition(str(var[2]), self.final_in_parameters)
+                                        #else if (other composed types)
+                                        else:
+                                            self.final_in_parameters.append(var)
+                                    for var in self.inout_parameters:
+                                        if('t_cartesian_coordinates' in var[0]):
+                                            self.addCartesianTypeDecomposition(str(var[1]), self.inout_parameters)
+                                        elif('t_tangent_vector' in var[0]):
+                                            self.addTangentVectorTypeDecomposition(str(var[1]), self.inout_parameters) 
+        #                                #else if (other composed types)
+                                        else:
+                                            self.final_inout_parameters.append(var)
+                                    for var in self.out_parameters:
+                                        if('t_cartesian_coordinates' in var[0]):
+                                            self.addCartesianTypeDecomposition(str(var[1]), self.out_parameters)
+                                        elif('t_tangent_vector' in var[0]):
+                                            self.addTangentVectorTypeDecomposition(str(var[1]), self.out_parameters) 
+        #                                #else if (other composed types)
+                                        else:
+                                            self.final_out_parameters.append(var)
+                                    execute_variable_cleanup = False
 
-                            # add init serialization directives
-                            if(print_init_directives):
-                                self.__outputBuffer += '!$ser init directory="./ser_data" prefix="' + fun_subroutine_name + '"\n'
-                                self.__outputBuffer += '!$ser mode write\n'
-                                self.__outputBuffer += '!$ser savepoint ' + fun_subroutine_name
-                                if('jg' in in_parameters):
-                                    self.__outputBuffer += ' id=jg'
-                                self.__outputBuffer += '\n'
+                                # add init serialization directives
+                                if(print_init_directives):
+                                    self.__outputBuffer += '!$ser init directory="./ser_data" prefix="' + fun_subroutine_name + '"\n'
+                                    self.__outputBuffer += '!$ser mode write\n'
+                                    self.__outputBuffer += '!$ser savepoint ' + fun_subroutine_name
+                                    if('jg' in self.in_parameters):
+                                        self.__outputBuffer += ' id=jg'
+                                    self.__outputBuffer += '\n'
 #$ser savepoint call-diffusion-init nproma=nproma date=TRIM(date) id=jg nshift_total=nshift nlev=nlev dtime=dtime linit=linit limited_area=l_limited_area num_cells=p_patch%n_patch_cells num_edges=p_patch%n_patch_edges num_vert=p_patch%n_patch_cells exit=.FALSE.
-                                print_init_directives = False
+                                    print_init_directives = False
 
-                            # add in and inout parameter serialization directives
-                            if(print_in_parameters):
-                                for var in in_parameters:
-                                    self.__outputBuffer += "!$ser data start_in_" + var[1] + "=" + var[1] + "\n"
+                                # add in and inout parameter serialization directives
+                                if(print_in_parameters):
+                                    print('self.final_in_parameters')
+                                    print(self.final_in_parameters)
+                                    print('self.final_in_parameters end') 
+                                    for var in self.final_in_parameters:
+                                        # check if composed types are present and if so add decomposition directives
+                                        if(var[0] == ''):
+                                            self.__outputBuffer += "!$ser data start_in_" + var[2] + "=" + var[2] + "\n"
+                                        elif(var[0] == 'cart'):
+                                            self.addCartesianTypeSerializationDirectives(var[2], 'start_in')
+                                        elif(var[0] == 'tangent'):
+                                            self.addTangentVectorTypeSerializationDirectives(var[2], 'start_in')
                                     print_in_parameters=False
-                            if(print_inout_parameters):
-                                for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data start_inout_" + var[1] + "=" + var[1] + "\n"
+                                if(print_inout_parameters):
+                                    # check if composed types are present and if so add decomposition directives
+                                    for var in self.final_inout_parameters:
+                                        if(var[0] == ''):
+                                            self.__outputBuffer += "!$ser data start_inout_" + var[2] + "=" + var[2] + "\n"
+                                        elif(var[0] == 'cart'):
+                                            self.addCartesianTypeSerializationDirectives(var[2], 'start_inout')
+                                        elif(var[0] == 'tangent'):
+                                            self.addTangentVectorTypeSerializationDirectives(var[2], 'start_inout')
                                     print_inout_parameters=False
 
-                            # check if there is a return statement
-                            m_return = r_return.search(new_line)
-                            if(m_return):
-                                # TODO: there could be multiple return in the same subroutine/function
-                                # print out/inout parameter serialization directives
-                                for var in inout_parameters:
-                                    self.__outputBuffer += "!$ser data ret_inout_" + var[1] + "=" + var[1] + "\n"
-                                for var in out_parameters:
-                                    self.__outputBuffer += "!$ser data ret_out_" + var[1] + "=" + var[1] + "\n"
+                                # check if there is a return statement
+                                m_return = r_return.search(new_line)
+                                if(m_return):
+                                    # TODO: there could be multiple return in the same subroutine/function
+                                    # print out/inout parameter serialization directives
+                                    for var in self.final_inout_parameters:
+                                        if(var[0] == ''):
+                                            self.__outputBuffer += "!$ser data ret_inout_" + var[2] + "=" + var[2] + "\n"
+                                        elif(var[0] == 'cart'):
+                                            self.addCartesianTypeSerializationDirectives(var[2], 'ret_inout')
+                                        elif(var[0] == 'tangent'):
+                                            self.addTangentVectorTypeSerializationDirectives(var[2], 'ret_inout')
+                                    for var in self.final_out_parameters:
+                                        if(var[0] == ''):
+                                            self.__outputBuffer += "!$ser data ret_out_" + var[2] + "=" + var[2] + "\n"
+                                        elif(var[0] == 'cart'):
+                                            self.addCartesianTypeSerializationDirectives(var[2], 'ret_out')
+                                        elif(var[0] == 'tangent'):
+                                            self.addTangentVectorTypeSerializationDirectives(var[2], 'ret_out')
 
 
-                if(generate):
-                    self.__outputBuffer += line
+                    if(generate):
+                        self.__outputBuffer += line
 
-                new_line = ''
+                    new_line = ''
 
         finally:
             input_file.close()
