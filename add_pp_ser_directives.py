@@ -408,10 +408,9 @@ class AddPPSer:
                                             self.addTangentTypeDecompositionCleanup(str(var[2]))
 
 
-                    if(generate):
-                        self.__outputBuffer += line
-
                     new_line = ''
+
+                self.__outputBuffer += line
 
         finally:
             input_file.close()
