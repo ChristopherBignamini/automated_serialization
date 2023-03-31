@@ -67,37 +67,37 @@ class AddPPSer:
         print('cart varname')
         print(var_name)
         print('cart varname end')
-        self.__outputBuffer += "real(wp) :: " + var_name + '_x(:,:,:), ' + var_name + '_y(:,:,:), ' + var_name + '_z(:,:,:)\n'
+        self.__outputBuffer += "real(wp), allocatable :: " + var_name + '_x(:,:,:), ' + var_name + '_y(:,:,:), ' + var_name + '_z(:,:,:)\n'
         parameter_list.append(('cart', 'real(c_double)', var_name))
 
     def addTangentVectorTypeDecomposition(self, var_name, parameter_list):
         print('tangent varname')
         print(var_name)
         print('tangent varname end')
-        self.__outputBuffer += "real(wp) :: " + var_name + '_v1(:,:,:), ' + var_name + '_v2(:,:,:)\n'
+        self.__outputBuffer += "real(wp), allocatable :: " + var_name + '_v1(:,:,:), ' + var_name + '_v2(:,:,:)\n'
         parameter_list.append(('tangent', 'real(c_double)', var_name))
 
     def addCartesianTypeSerializationDirectives(self, var_name, prefix):
-        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_x(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
-        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_y(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
-        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_z(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!$ser verbatim \"allocate(' + var_name + '_x(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!$ser verbatim \"allocate(' + var_name + '_y(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!$ser verbatim \"allocate(' + var_name + '_z(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
         # TODO: add decomposed variable to list?
-        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_x(:,:,:) = ' + var_name + '(:,:,:)%x(1)\n'
-        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_y(:,:,:) = ' + var_name + '(:,:,:)%x(2)\n'
-        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_z(:,:,:) = ' + var_name + '(:,:,:)%x(3)\n'
+        self.__outputBuffer += '!$ser data ' + prefix + '_' + var_name + '_x(:,:,:) = ' + var_name + '(:,:,:)%x(1)\n'
+        self.__outputBuffer += '!$ser data ' + prefix + '_' + var_name + '_y(:,:,:) = ' + var_name + '(:,:,:)%x(2)\n'
+        self.__outputBuffer += '!$ser data ' + prefix + '_' + var_name + '_z(:,:,:) = ' + var_name + '(:,:,:)%x(3)\n'
 
     def addTangentVectorTypeSerializationDirectives(self, var_name, prefix):
-        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_v1(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
-        self.__outputBuffer += '!ser verbatim \"allocate(' + var_name + '_v2(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!$ser verbatim \"allocate(' + var_name + '_v1(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
+        self.__outputBuffer += '!$ser verbatim \"allocate(' + var_name + '_v2(size(' + var_name + ', 1), size(' + var_name + ', 2), size(' + var_name + ', 3)))\"\n'
         # TODO: add decomposed variable to list?
-        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_v1(:,:,:) = ' + var_name + '(:,:,:)%v1\n'
-        self.__outputBuffer += '!ser data ' + prefix + '_' + var_name + '_v2(:,:,:) = ' + var_name + '(:,:,:)%v2\n'
+        self.__outputBuffer += '!$ser data ' + prefix + '_' + var_name + '_v1(:,:,:) = ' + var_name + '(:,:,:)%v1\n'
+        self.__outputBuffer += '!$ser data ' + prefix + '_' + var_name + '_v2(:,:,:) = ' + var_name + '(:,:,:)%v2\n'
 
     def addCartesianTypeDecompositionCleanup(self, var_name):
-        self.__outputBuffer += '!ser verbatim \"deallocate(' + var_name + '_x, ' + var_name + '_y, ' + var_name + '_z)\n'
+        self.__outputBuffer += '!$ser verbatim \"deallocate(' + var_name + '_x, ' + var_name + '_y, ' + var_name + '_z)\n'
 
     def addTangentTypeDecompositionCleanup(self, var_name):
-        self.__outputBuffer += '!ser verbatim \"deallocate(' + var_name + '_v1, ' + var_name + '_v2)\n'
+        self.__outputBuffer += '!$ser verbatim \"deallocate(' + var_name + '_v1, ' + var_name + '_v2)\n'
 
     # execute one parsing pass over file
     def parse(self, generate=False):
