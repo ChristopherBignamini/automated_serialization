@@ -502,11 +502,11 @@ if __name__ == "__main__":
         else:
             outfile = ''
 
-        # If output is to a file and the file is more updated than the input, skip
-        if os.path.exists(outfile) and os.path.getctime(outfile) > os.path.getctime(infile):
-            print('Skipping', infile)
-        else:
-            print('Processing file', infile)
-            ser = AddPPSer(infile, outfile=outfile, identical=(not options.ignore_identical),
-                           verbose=options.verbose)
-            ser.process()
+#        # If output is to a file and the file is more updated than the input, skip
+#        if os.path.exists(outfile) and os.path.getctime(outfile) > os.path.getctime(infile):
+#            print('Skipping', infile)
+#        else:
+        print('Processing file', infile)
+        ser = AddPPSer(infile, outfile=outfile, identical=(not options.ignore_identical),
+                       verbose=options.verbose)
+        ser.process()
