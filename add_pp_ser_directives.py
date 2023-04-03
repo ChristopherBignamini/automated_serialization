@@ -228,19 +228,22 @@ class AddPPSer:
 
                         # deallocate composed data types additional variables
                         for var in self.final_in_parameters:
-                            if('t_cartesian_coordinates' in var[1]):
+                            print("In cleanup")
+                            if(var[0] == 'cart'):
+                                print("In cleanup t_cartesian_coordinates")
                                 self.addCartesianTypeDecompositionCleanup(str(var[2]))
-                            elif('t_tangent_vector' in var[1]):
+                            elif(var[0] == 'tangent'):
+                                print("In cleanup t_tangent_vector")
                                 self.addTangentTypeDecompositionCleanup(str(var[2]))
                         for var in self.final_inout_parameters:
-                            if('t_cartesian_coordinates' in var[1]):
+                            if(var[0] == 'cart'):
                                 self.addCartesianTypeDecompositionCleanup(str(var[2]))
-                            elif('t_tangent_vector' in var[1]):
+                            elif(var[0] == 'tangent'):
                                 self.addTangentTypeDecompositionCleanup(str(var[2]))
                         for var in self.final_out_parameters:
-                            if('t_cartesian_coordinates' in var[1]):
+                            if(var[0] == 'cart'):
                                 self.addCartesianTypeDecompositionCleanup(str(var[2]))
-                            elif('t_tangent_vector' in var[1]):
+                            elif(var[0] == 'tangent'):
                                 self.addTangentTypeDecompositionCleanup(str(var[2]))
                         self.in_parameters = []
                         self.out_parameters = []
